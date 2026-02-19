@@ -4,7 +4,7 @@ A framework-free Todo app built for AI-assisted iteration.
 
 ## View Live Demo
 
-[View Live Demo on Vercel](https://todo-app-six-phi-84.vercel.app)
+[View Live Demo on Vercel](https://app-six-phi-84.vercel.app)
 
 ## Features
 

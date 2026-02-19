@@ -25,6 +25,7 @@ const themeToggle = document.getElementById("themeToggle");
 const historyList = document.getElementById("historyList");
 const historyEmpty = document.getElementById("historyEmpty");
 const clearHistoryBtn = document.getElementById("clearHistoryBtn");
+const hasHistoryUI = Boolean(historyList && historyEmpty && clearHistoryBtn);
 
 // In-memory state mirrored to localStorage.
 let todos = loadTodos();
@@ -40,10 +41,7 @@ if (
   itemsLeft &&
   filterContainer &&
   clearCompletedBtn &&
-  themeToggle &&
-  historyList &&
-  historyEmpty &&
-  clearHistoryBtn
+  themeToggle
 ) {
   // Theme is initialized first so first paint matches user preference.
   initTheme();
@@ -125,11 +123,13 @@ if (
   });
 
   // Remove all history records.
-  clearHistoryBtn.addEventListener("click", () => {
-    historyEntries = [];
-    saveHistory();
-    render();
-  });
+  if (hasHistoryUI) {
+    clearHistoryBtn.addEventListener("click", () => {
+      historyEntries = [];
+      saveHistory();
+      render();
+    });
+  }
 } else {
   console.error("Todo app failed to initialize: missing required DOM nodes.");
 }
@@ -220,6 +220,8 @@ function render() {
 
 // Render persisted action history entries.
 function renderHistory() {
+  if (!hasHistoryUI) return;
+
   historyList.innerHTML = "";
 
   historyEntries.forEach((entry) => {

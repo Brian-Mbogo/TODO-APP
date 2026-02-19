@@ -41,6 +41,15 @@
     <ul id="todoList" class="todo-list" aria-live="polite"></ul>
     <p id="emptyState" class="empty-state">No tasks yet. Add one above.</p>
 
+    <section class="history-panel" aria-label="Action history">
+      <div class="history-header">
+        <h2>History</h2>
+        <button id="clearHistoryBtn" class="ghost-btn" type="button">Clear History</button>
+      </div>
+      <ol id="historyList" class="history-list"></ol>
+      <p id="historyEmpty" class="history-empty">No actions yet.</p>
+    </section>
+
     <footer class="app-footer">
       <p id="itemsLeft">0 items left</p>
       <p class="hint">Shortcut: press <kbd>Delete</kbd> on a focused card to remove it</p>
