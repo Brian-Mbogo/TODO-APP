@@ -1,5 +1,7 @@
 ﻿const STORAGE_KEY = "sticky_todo.tasks.v1";
 const THEME_KEY = "sticky_todo.theme";
+const HISTORY_KEY = "sticky_todo.history.v1";
+const HISTORY_LIMIT = 80;
 
 const todoForm = document.getElementById("todoForm");
 const todoInput = document.getElementById("todoInput");
@@ -9,8 +11,12 @@ const itemsLeft = document.getElementById("itemsLeft");
 const filterContainer = document.getElementById("filters");
 const clearCompletedBtn = document.getElementById("clearCompletedBtn");
 const themeToggle = document.getElementById("themeToggle");
+const historyList = document.getElementById("historyList");
+const historyEmpty = document.getElementById("historyEmpty");
+const clearHistoryBtn = document.getElementById("clearHistoryBtn");
 
 let todos = loadTodos();
+let historyEntries = loadHistory();
 let currentFilter = "all";
 
 if (
@@ -21,7 +27,10 @@ if (
   itemsLeft &&
   filterContainer &&
   clearCompletedBtn &&
-  themeToggle
+  themeToggle &&
+  historyList &&
+  historyEmpty &&
+  clearHistoryBtn
 ) {
   initTheme();
   render();
@@ -39,6 +48,7 @@ if (
       completed: false,
       createdAt: Date.now()
     });
+    addHistory(`Added "${text}"`);
 
     todoInput.value = "";
     saveTodos();
@@ -55,7 +65,11 @@ if (
   });
 
   clearCompletedBtn.addEventListener("click", () => {
+    const removedCount = todos.filter((todo) => todo.completed).length;
+    if (!removedCount) return;
+
     todos = todos.filter((todo) => !todo.completed);
+    addHistory(`Cleared ${removedCount} completed task${removedCount === 1 ? "" : "s"}`);
     saveTodos();
     render();
   });
@@ -89,21 +103,37 @@ if (
     const nextTheme = document.body.dataset.theme === "dark" ? "light" : "dark";
     setTheme(nextTheme);
   });
+
+  clearHistoryBtn.addEventListener("click", () => {
+    historyEntries = [];
+    saveHistory();
+    render();
+  });
 } else {
   console.error("Todo app failed to initialize: missing required DOM nodes.");
 }
 
 function toggleTodo(id) {
+  const target = todos.find((todo) => todo.id === id);
+  if (!target) return;
+  const nextCompleted = !target.completed;
+
   todos = todos.map((todo) => {
     if (todo.id !== id) return todo;
-    return { ...todo, completed: !todo.completed };
+    return { ...todo, completed: nextCompleted };
   });
+
+  addHistory(`${nextCompleted ? "Completed" : "Reopened"} "${target.text}"`);
   saveTodos();
   render();
 }
 
 function removeTodo(id) {
+  const removed = todos.find((todo) => todo.id === id);
+  if (!removed) return;
+
   todos = todos.filter((todo) => todo.id !== id);
+  addHistory(`Deleted "${removed.text}"`);
   saveTodos();
   render();
 }
@@ -157,6 +187,22 @@ function render() {
   [...filterContainer.querySelectorAll(".filter-btn")].forEach((button) => {
     button.classList.toggle("active", button.dataset.filter === currentFilter);
   });
+
+  renderHistory();
+}
+
+function renderHistory() {
+  historyList.innerHTML = "";
+
+  historyEntries.forEach((entry) => {
+    const item = document.createElement("li");
+    item.className = "history-item";
+    item.textContent = `${entry.message} - ${formatHistoryTime(entry.timestamp)}`;
+    historyList.append(item);
+  });
+
+  historyEmpty.hidden = historyEntries.length > 0;
+  clearHistoryBtn.disabled = historyEntries.length === 0;
 }
 
 function loadTodos() {
@@ -171,6 +217,31 @@ function loadTodos() {
 
 function saveTodos() {
   safeSet(STORAGE_KEY, JSON.stringify(todos));
+}
+
+function loadHistory() {
+  try {
+    const raw = safeGet(HISTORY_KEY);
+    const parsed = JSON.parse(raw ?? "[]");
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveHistory() {
+  safeSet(HISTORY_KEY, JSON.stringify(historyEntries));
+}
+
+function addHistory(message) {
+  historyEntries.unshift({
+    id: generateId(),
+    message,
+    timestamp: Date.now()
+  });
+
+  historyEntries = historyEntries.slice(0, HISTORY_LIMIT);
+  saveHistory();
 }
 
 function hashId(id) {
@@ -197,6 +268,14 @@ function setTheme(theme) {
   document.body.dataset.theme = theme;
   themeToggle.textContent = theme === "dark" ? "Light Mode" : "Dark Mode";
   safeSet(THEME_KEY, theme);
+}
+
+function formatHistoryTime(timestamp) {
+  try {
+    return new Date(timestamp).toLocaleString();
+  } catch {
+    return "time unknown";
+  }
 }
 
 function safeGet(key) {
