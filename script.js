@@ -1,8 +1,19 @@
-﻿const STORAGE_KEY = "sticky_todo.tasks.v1";
+﻿// Local storage keys for todos, theme preference, and action history.
+const STORAGE_KEY = "sticky_todo.tasks.v1";
 const THEME_KEY = "sticky_todo.theme";
 const HISTORY_KEY = "sticky_todo.history.v1";
 const HISTORY_LIMIT = 80;
 
+/*
+App architecture:
+1) Load state from localStorage into memory.
+2) Listen for user events.
+3) Mutate state.
+4) Persist state.
+5) Re-render UI from the latest state.
+*/
+
+// Main UI references.
 const todoForm = document.getElementById("todoForm");
 const todoInput = document.getElementById("todoInput");
 const todoList = document.getElementById("todoList");
@@ -15,10 +26,12 @@ const historyList = document.getElementById("historyList");
 const historyEmpty = document.getElementById("historyEmpty");
 const clearHistoryBtn = document.getElementById("clearHistoryBtn");
 
+// In-memory state mirrored to localStorage.
 let todos = loadTodos();
 let historyEntries = loadHistory();
 let currentFilter = "all";
 
+// Only start the app when all required DOM nodes exist.
 if (
   todoForm &&
   todoInput &&
@@ -32,7 +45,9 @@ if (
   historyEmpty &&
   clearHistoryBtn
 ) {
+  // Theme is initialized first so first paint matches user preference.
   initTheme();
+  // Initial UI render from persisted state.
   render();
 
   // Add with Enter or button submit.
@@ -56,6 +71,7 @@ if (
     todoInput.focus();
   });
 
+  // Switch between All/Active/Completed views.
   filterContainer.addEventListener("click", (event) => {
     const target = event.target.closest("[data-filter]");
     if (!target) return;
@@ -64,6 +80,7 @@ if (
     render();
   });
 
+  // Remove all completed tasks in one action.
   clearCompletedBtn.addEventListener("click", () => {
     const removedCount = todos.filter((todo) => todo.completed).length;
     if (!removedCount) return;
@@ -74,6 +91,7 @@ if (
     render();
   });
 
+  // Event delegation for card actions (checkbox/delete).
   todoList.addEventListener("click", (event) => {
     const card = event.target.closest(".todo-card");
     if (!card) return;
@@ -90,6 +108,7 @@ if (
     }
   });
 
+  // Keyboard delete support for focused cards.
   todoList.addEventListener("keydown", (event) => {
     if (event.key !== "Delete") return;
 
@@ -99,11 +118,13 @@ if (
     removeTodo(card.dataset.id);
   });
 
+  // Toggle dark/light theme.
   themeToggle.addEventListener("click", () => {
     const nextTheme = document.body.dataset.theme === "dark" ? "light" : "dark";
     setTheme(nextTheme);
   });
 
+  // Remove all history records.
   clearHistoryBtn.addEventListener("click", () => {
     historyEntries = [];
     saveHistory();
@@ -113,6 +134,7 @@ if (
   console.error("Todo app failed to initialize: missing required DOM nodes.");
 }
 
+// Toggle a task between active and completed states.
 function toggleTodo(id) {
   const target = todos.find((todo) => todo.id === id);
   if (!target) return;
@@ -128,6 +150,7 @@ function toggleTodo(id) {
   render();
 }
 
+// Remove a task and log the action.
 function removeTodo(id) {
   const removed = todos.find((todo) => todo.id === id);
   if (!removed) return;
@@ -138,7 +161,9 @@ function removeTodo(id) {
   render();
 }
 
+// Re-render tasks, counts, filters, and history.
 function render() {
+  // Visible list depends on selected filter tab.
   const visibleTodos = todos.filter((todo) => {
     if (currentFilter === "active") return !todo.completed;
     if (currentFilter === "completed") return todo.completed;
@@ -184,13 +209,16 @@ function render() {
   clearCompletedBtn.disabled = completedCount === 0;
   emptyState.hidden = visibleTodos.length > 0;
 
+  // Keep active tab styling in sync with currentFilter.
   [...filterContainer.querySelectorAll(".filter-btn")].forEach((button) => {
     button.classList.toggle("active", button.dataset.filter === currentFilter);
   });
 
+  // History is rendered separately for clarity.
   renderHistory();
 }
 
+// Render persisted action history entries.
 function renderHistory() {
   historyList.innerHTML = "";
 
@@ -205,6 +233,7 @@ function renderHistory() {
   clearHistoryBtn.disabled = historyEntries.length === 0;
 }
 
+// Load/sync todos from storage.
 function loadTodos() {
   try {
     const raw = safeGet(STORAGE_KEY);
@@ -215,10 +244,12 @@ function loadTodos() {
   }
 }
 
+// Persist the latest todo list state.
 function saveTodos() {
   safeSet(STORAGE_KEY, JSON.stringify(todos));
 }
 
+// Load/sync history entries from storage.
 function loadHistory() {
   try {
     const raw = safeGet(HISTORY_KEY);
@@ -229,21 +260,26 @@ function loadHistory() {
   }
 }
 
+// Persist the latest history list state.
 function saveHistory() {
   safeSet(HISTORY_KEY, JSON.stringify(historyEntries));
 }
 
+// Add a new history record and keep the list bounded.
 function addHistory(message) {
+  // Newest events appear first.
   historyEntries.unshift({
     id: generateId(),
     message,
     timestamp: Date.now()
   });
 
+  // Prevent unbounded growth in localStorage.
   historyEntries = historyEntries.slice(0, HISTORY_LIMIT);
   saveHistory();
 }
 
+// Produce a stable numeric hash used for card tilt variation.
 function hashId(id) {
   let hash = 0;
   for (let i = 0; i < id.length; i += 1) {
@@ -253,23 +289,29 @@ function hashId(id) {
   return Math.abs(hash);
 }
 
+// Initialize theme from storage or system preference.
 function initTheme() {
   const stored = safeGet(THEME_KEY);
   if (stored === "light" || stored === "dark") {
+    // Respect explicit user choice when available.
     setTheme(stored);
     return;
   }
 
+  // Fallback to OS/browser preference for first-time users.
   const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
   setTheme(prefersDark ? "dark" : "light");
 }
 
+// Apply the active theme and persist it.
 function setTheme(theme) {
   document.body.dataset.theme = theme;
+  // Button label shows what action is available next.
   themeToggle.textContent = theme === "dark" ? "Light Mode" : "Dark Mode";
   safeSet(THEME_KEY, theme);
 }
 
+// Convert a timestamp into a user-friendly local date/time string.
 function formatHistoryTime(timestamp) {
   try {
     return new Date(timestamp).toLocaleString();
@@ -278,6 +320,7 @@ function formatHistoryTime(timestamp) {
   }
 }
 
+// Storage wrappers prevent crashes when storage access is blocked.
 function safeGet(key) {
   try {
     return localStorage.getItem(key);
@@ -286,6 +329,7 @@ function safeGet(key) {
   }
 }
 
+// Safely write values to storage without throwing in restricted modes.
 function safeSet(key, value) {
   try {
     localStorage.setItem(key, value);
@@ -294,6 +338,7 @@ function safeSet(key, value) {
   }
 }
 
+// Fallback ID generator for environments without crypto.randomUUID().
 function generateId() {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
     return crypto.randomUUID();
