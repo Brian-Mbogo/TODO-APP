@@ -1,0 +1,50 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sticky Todo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Nunito:wght@500;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+  <script src="script.js" defer></script>
+</head>
+<body>
+  <div class="bg-shape bg-shape-a" aria-hidden="true"></div>
+  <div class="bg-shape bg-shape-b" aria-hidden="true"></div>
+
+  <main class="app">
+    <header class="app-header">
+      <div>
+        <p class="eyebrow">Replit + ChatGPT Build</p>
+        <h1>Sticky Todo Board</h1>
+      </div>
+      <button id="themeToggle" class="ghost-btn" type="button" aria-label="Toggle theme">Theme</button>
+    </header>
+
+    <form id="todoForm" class="todo-form">
+      <label for="todoInput" class="sr-only">Task</label>
+      <input id="todoInput" name="task" type="text" maxlength="120" placeholder="Write a task and hit Enter" autocomplete="off" required />
+      <button type="submit">Add Task</button>
+    </form>
+
+    <section class="controls" aria-label="Task controls">
+      <div id="filters" class="filters" role="group" aria-label="Filters">
+        <button class="filter-btn active" data-filter="all" type="button">All</button>
+        <button class="filter-btn" data-filter="active" type="button">Active</button>
+        <button class="filter-btn" data-filter="completed" type="button">Completed</button>
+      </div>
+      <button id="clearCompletedBtn" class="ghost-btn" type="button">Clear Completed</button>
+    </section>
+
+    <ul id="todoList" class="todo-list" aria-live="polite"></ul>
+    <p id="emptyState" class="empty-state">No tasks yet. Add one above.</p>
+
+    <footer class="app-footer">
+      <p id="itemsLeft">0 items left</p>
+      <p class="hint">Shortcut: press <kbd>Delete</kbd> on a focused card to remove it</p>
+    </footer>
+  </main>
+</body>
+</html>
