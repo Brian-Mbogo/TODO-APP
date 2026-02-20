@@ -155,6 +155,24 @@ button:active {
   border: 1px solid color-mix(in srgb, var(--text), transparent 75%);
 }
 
+.theme-toggle {
+  display: inline-flex;
+  gap: 6px;
+  padding: 4px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--surface), #e8ecff 32%);
+}
+
+.theme-btn {
+  min-width: 72px;
+  border-color: transparent;
+}
+
+.theme-btn.active {
+  background: var(--primary);
+  color: #fff;
+}
+
 .controls {
   margin-top: 16px;
   display: flex;

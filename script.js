@@ -116,10 +116,11 @@ if (
     removeTodo(card.dataset.id);
   });
 
-  // Toggle dark/light theme.
-  themeToggle.addEventListener("click", () => {
-    const nextTheme = document.body.dataset.theme === "dark" ? "light" : "dark";
-    setTheme(nextTheme);
+  // Switch theme from the light/dark segmented control.
+  themeToggle.addEventListener("click", (event) => {
+    const target = event.target.closest("[data-theme-option]");
+    if (!target) return;
+    setTheme(target.dataset.themeOption);
   });
 
   // Remove all history records.
@@ -308,8 +309,13 @@ function initTheme() {
 // Apply the active theme and persist it.
 function setTheme(theme) {
   document.body.dataset.theme = theme;
-  // Button label shows what action is available next.
-  themeToggle.textContent = theme === "dark" ? "Light Mode" : "Dark Mode";
+  // Keep the segmented toggle in sync with active theme.
+  const buttons = themeToggle.querySelectorAll("[data-theme-option]");
+  buttons.forEach((button) => {
+    const isActive = button.dataset.themeOption === theme;
+    button.classList.toggle("active", isActive);
+    button.setAttribute("aria-pressed", String(isActive));
+  });
   safeSet(THEME_KEY, theme);
 }
 

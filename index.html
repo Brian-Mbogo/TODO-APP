@@ -20,7 +20,10 @@
         <p class="eyebrow"> Build</p>
         <h1>Sticky Todo Board</h1>
       </div>
-      <button id="themeToggle" class="ghost-btn" type="button" aria-label="Toggle theme">Theme</button>
+      <div id="themeToggle" class="theme-toggle" role="group" aria-label="Theme mode">
+        <button class="ghost-btn theme-btn" type="button" data-theme-option="light" aria-pressed="false">Light</button>
+        <button class="ghost-btn theme-btn" type="button" data-theme-option="dark" aria-pressed="false">Dark</button>
+      </div>
     </header>
 
     <form id="todoForm" class="todo-form">
