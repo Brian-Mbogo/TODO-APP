@@ -5,13 +5,18 @@ import { useAppDispatch, useAppSelector } from './store/hooks'
 import { clearCompleted, setFilter } from './store/todoSlice'
 
 function App() {
+  // Dispatch sends actions to Redux (ex: setFilter, clearCompleted).
   const dispatch = useAppDispatch()
+  // Select reads data from Redux (global state).
   const todos = useAppSelector((s) => s.todo.todos)
   const filter = useAppSelector((s) => s.todo.filter)
 
+  // Derived values: counts computed from the todos array.
   const notDoneCount = useMemo(() => todos.filter((t) => !t.isDone).length, [todos])
   const doneCount = todos.length - notDoneCount
 
+  // Theme is UI-only state (no need to store in Redux).
+  // We store it in localStorage so it persists after refresh.
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     const stored = localStorage.getItem('sticky_todo.theme')
     if (stored === 'dark' || stored === 'light') return stored
@@ -19,6 +24,7 @@ function App() {
   })
 
   useEffect(() => {
+    // Apply theme by changing CSS variables (see style.css) via body[data-theme="..."].
     document.body.dataset.theme = theme
     localStorage.setItem('sticky_todo.theme', theme)
   }, [theme])
@@ -63,6 +69,7 @@ function App() {
               className={`filter-btn${filter === 'all' ? ' active' : ''}`}
               data-filter="all"
               type="button"
+              // Clicking dispatches an action that changes Redux state.todo.filter.
               onClick={() => dispatch(setFilter('all'))}
             >
               All
@@ -94,6 +101,7 @@ function App() {
           </button>
         </section>
 
+        {/* This component renders the filtered list of todos. */}
         <ListTask />
 
         <footer className="app-footer">

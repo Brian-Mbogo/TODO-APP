@@ -1,3 +1,9 @@
+// NOTE:
+// This file is a legacy, framework-free (vanilla JS) version of the app.
+// The current Redux Toolkit + React + TypeScript app lives in /src and runs via Vite.
+//
+// Keeping this file is optional; it is NOT used by Vite builds.
+//
 // Local storage keys for tasks, theme preference, and action history.
 const STORAGE_KEY = "sticky_todo.tasks.v1";
 const THEME_KEY = "sticky_todo.theme";
