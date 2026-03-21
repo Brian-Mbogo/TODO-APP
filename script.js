@@ -1,17 +1,8 @@
-﻿// Local storage keys for todos, theme preference, and action history.
+// Local storage keys for tasks, theme preference, and action history.
 const STORAGE_KEY = "sticky_todo.tasks.v1";
 const THEME_KEY = "sticky_todo.theme";
 const HISTORY_KEY = "sticky_todo.history.v1";
 const HISTORY_LIMIT = 80;
-
-/*
-App architecture:
-1) Load state from localStorage into memory.
-2) Listen for user events.
-3) Mutate state.
-4) Persist state.
-5) Re-render UI from the latest state.
-*/
 
 // Main UI references.
 const todoForm = document.getElementById("todoForm");
@@ -27,10 +18,7 @@ const historyEmpty = document.getElementById("historyEmpty");
 const clearHistoryBtn = document.getElementById("clearHistoryBtn");
 const hasHistoryUI = Boolean(historyList && historyEmpty && clearHistoryBtn);
 
-// In-memory state mirrored to localStorage.
-let todos = loadTodos();
-let historyEntries = loadHistory();
-let currentFilter = "all";
+const hasRedux = typeof Redux !== "undefined" && typeof Redux.createStore === "function";
 
 // Only start the app when all required DOM nodes exist.
 if (
@@ -43,53 +31,189 @@ if (
   clearCompletedBtn &&
   themeToggle
 ) {
-  // Theme is initialized first so first paint matches user preference.
   initTheme();
-  // Initial UI render from persisted state.
-  render();
 
-  // Add with Enter or button submit.
+  if (!hasRedux) {
+    console.error("Redux failed to load. Check the Redux <script> tag in index.html.");
+  } else {
+    const store = createAppStore();
+
+    Addtask(store);
+    wireUIEvents(store);
+
+    store.subscribe(() => {
+      const state = store.getState();
+      saveTasks(state.tasks);
+      saveHistory(state.history);
+      render(store);
+    });
+
+    render(store);
+  }
+} else {
+  console.error("Todo app failed to initialize: missing required DOM nodes.");
+}
+
+function createAppStore() {
+  const initialState = {
+    tasks: loadTasks(),
+    filter: "all",
+    ui: { editingId: null },
+    history: loadHistory()
+  };
+
+  return Redux.createStore(appReducer, initialState);
+}
+
+const actionTypes = {
+  ADD_TASK: "tasks/add",
+  TOGGLE_TASK: "tasks/toggle",
+  DELETE_TASK: "tasks/delete",
+  EDIT_TASK: "tasks/edit",
+  CLEAR_COMPLETED: "tasks/clearCompleted",
+  SET_FILTER: "filter/set",
+  SET_EDITING: "ui/setEditing",
+  CLEAR_HISTORY: "history/clear"
+};
+
+const actions = {
+  addTask: (description) => ({ type: actionTypes.ADD_TASK, payload: { description } }),
+  toggleTask: (id) => ({ type: actionTypes.TOGGLE_TASK, payload: { id } }),
+  deleteTask: (id) => ({ type: actionTypes.DELETE_TASK, payload: { id } }),
+  editTask: (id, description) => ({ type: actionTypes.EDIT_TASK, payload: { id, description } }),
+  clearCompleted: () => ({ type: actionTypes.CLEAR_COMPLETED }),
+  setFilter: (filter) => ({ type: actionTypes.SET_FILTER, payload: { filter } }),
+  setEditing: (idOrNull) => ({ type: actionTypes.SET_EDITING, payload: { id: idOrNull } }),
+  clearHistory: () => ({ type: actionTypes.CLEAR_HISTORY })
+};
+
+function appReducer(state, action) {
+  if (!state) return state;
+
+  switch (action.type) {
+    case actionTypes.ADD_TASK: {
+      const description = (action.payload?.description ?? "").trim();
+      if (!description) return state;
+
+      const next = {
+        ...state,
+        tasks: [{ id: generateId(), description, isDone: false }, ...state.tasks],
+        ui: { ...state.ui, editingId: null }
+      };
+      return addHistoryEntry(next, `Added \"${description}\"`);
+    }
+
+    case actionTypes.TOGGLE_TASK: {
+      const id = action.payload?.id;
+      const target = state.tasks.find((task) => task.id === id);
+      if (!target) return state;
+
+      const nextIsDone = !target.isDone;
+      const next = {
+        ...state,
+        tasks: state.tasks.map((task) => (task.id === id ? { ...task, isDone: nextIsDone } : task)),
+        ui: { ...state.ui, editingId: state.ui.editingId === id ? null : state.ui.editingId }
+      };
+      return addHistoryEntry(next, `${nextIsDone ? "Completed" : "Reopened"} \"${target.description}\"`);
+    }
+
+    case actionTypes.DELETE_TASK: {
+      const id = action.payload?.id;
+      const removed = state.tasks.find((task) => task.id === id);
+      if (!removed) return state;
+
+      const next = {
+        ...state,
+        tasks: state.tasks.filter((task) => task.id !== id),
+        ui: { ...state.ui, editingId: state.ui.editingId === id ? null : state.ui.editingId }
+      };
+      return addHistoryEntry(next, `Deleted \"${removed.description}\"`);
+    }
+
+    case actionTypes.EDIT_TASK: {
+      const id = action.payload?.id;
+      const nextDescription = (action.payload?.description ?? "").trim();
+      if (!id || !nextDescription) return state;
+
+      const target = state.tasks.find((task) => task.id === id);
+      if (!target) return state;
+
+      const next = {
+        ...state,
+        tasks: state.tasks.map((task) => (task.id === id ? { ...task, description: nextDescription } : task)),
+        ui: { ...state.ui, editingId: null }
+      };
+      return addHistoryEntry(next, `Edited \"${target.description}\"`);
+    }
+
+    case actionTypes.CLEAR_COMPLETED: {
+      const removedCount = state.tasks.filter((task) => task.isDone).length;
+      if (!removedCount) return state;
+
+      const remainingTasks = state.tasks.filter((task) => !task.isDone);
+      const nextEditingId =
+        state.ui.editingId && remainingTasks.some((task) => task.id === state.ui.editingId)
+          ? state.ui.editingId
+          : null;
+
+      const next = {
+        ...state,
+        tasks: remainingTasks,
+        ui: { ...state.ui, editingId: nextEditingId }
+      };
+      return addHistoryEntry(
+        next,
+        `Cleared ${removedCount} completed task${removedCount === 1 ? "" : "s"}`
+      );
+    }
+
+    case actionTypes.SET_FILTER: {
+      const filter = action.payload?.filter;
+      if (filter !== "all" && filter !== "done" && filter !== "not_done") return state;
+      return { ...state, filter, ui: { ...state.ui, editingId: null } };
+    }
+
+    case actionTypes.SET_EDITING: {
+      const idOrNull = action.payload?.id ?? null;
+      if (idOrNull === null) return { ...state, ui: { ...state.ui, editingId: null } };
+      const exists = state.tasks.some((task) => task.id === idOrNull);
+      return exists ? { ...state, ui: { ...state.ui, editingId: idOrNull } } : state;
+    }
+
+    case actionTypes.CLEAR_HISTORY: {
+      return { ...state, history: [] };
+    }
+
+    default:
+      return state;
+  }
+}
+
+// Component: Addtask
+function Addtask(store) {
   todoForm.addEventListener("submit", (event) => {
     event.preventDefault();
 
-    const text = todoInput.value.trim();
-    if (!text) return;
+    const description = todoInput.value.trim();
+    if (!description) return;
 
-    todos.unshift({
-      id: generateId(),
-      text,
-      completed: false,
-      createdAt: Date.now()
-    });
-    addHistory(`Added "${text}"`);
-
+    store.dispatch(actions.addTask(description));
     todoInput.value = "";
-    saveTodos();
-    render();
     todoInput.focus();
   });
+}
 
-  // Switch between All/Active/Completed views.
+function wireUIEvents(store) {
   filterContainer.addEventListener("click", (event) => {
     const target = event.target.closest("[data-filter]");
     if (!target) return;
-
-    currentFilter = target.dataset.filter;
-    render();
+    store.dispatch(actions.setFilter(target.dataset.filter));
   });
 
-  // Remove all completed tasks in one action.
   clearCompletedBtn.addEventListener("click", () => {
-    const removedCount = todos.filter((todo) => todo.completed).length;
-    if (!removedCount) return;
-
-    todos = todos.filter((todo) => !todo.completed);
-    addHistory(`Cleared ${removedCount} completed task${removedCount === 1 ? "" : "s"}`);
-    saveTodos();
-    render();
+    store.dispatch(actions.clearCompleted());
   });
 
-  // Event delegation for card actions (checkbox/delete).
   todoList.addEventListener("click", (event) => {
     const card = event.target.closest(".todo-card");
     if (!card) return;
@@ -97,130 +221,200 @@ if (
     const id = card.dataset.id;
 
     if (event.target.classList.contains("delete-btn")) {
-      removeTodo(id);
+      store.dispatch(actions.deleteTask(id));
       return;
     }
 
     if (event.target.classList.contains("todo-check")) {
-      toggleTodo(id);
+      store.dispatch(actions.toggleTask(id));
+      return;
+    }
+
+    if (event.target.classList.contains("edit-btn") || event.target.classList.contains("todo-text")) {
+      store.dispatch(actions.setEditing(id));
+      return;
+    }
+
+    if (event.target.classList.contains("cancel-btn")) {
+      store.dispatch(actions.setEditing(null));
+      return;
+    }
+
+    if (event.target.classList.contains("save-btn")) {
+      const input = card.querySelector(".todo-edit");
+      const nextDescription = input ? input.value.trim() : "";
+      if (nextDescription) store.dispatch(actions.editTask(id, nextDescription));
     }
   });
 
-  // Keyboard delete support for focused cards.
   todoList.addEventListener("keydown", (event) => {
+    const state = store.getState();
+
+    if (event.target instanceof HTMLInputElement && event.target.classList.contains("todo-edit")) {
+      const card = event.target.closest(".todo-card");
+      const id = card?.dataset.id;
+      if (!id) return;
+
+      if (event.key === "Enter") {
+        event.preventDefault();
+        const nextDescription = event.target.value.trim();
+        if (nextDescription) store.dispatch(actions.editTask(id, nextDescription));
+      }
+
+      if (event.key === "Escape") {
+        event.preventDefault();
+        store.dispatch(actions.setEditing(null));
+      }
+
+      return;
+    }
+
     if (event.key !== "Delete") return;
+    if (state.ui.editingId) return;
 
     const card = event.target.closest(".todo-card");
     if (!card) return;
-
-    removeTodo(card.dataset.id);
+    store.dispatch(actions.deleteTask(card.dataset.id));
   });
 
-  // Switch theme from the light/dark segmented control.
   themeToggle.addEventListener("click", (event) => {
     const target = event.target.closest("[data-theme-option]");
     if (!target) return;
     setTheme(target.dataset.themeOption);
   });
 
-  // Remove all history records.
   if (hasHistoryUI) {
     clearHistoryBtn.addEventListener("click", () => {
-      historyEntries = [];
-      saveHistory();
-      render();
+      store.dispatch(actions.clearHistory());
     });
   }
-} else {
-  console.error("Todo app failed to initialize: missing required DOM nodes.");
 }
 
-// Toggle a task between active and completed states.
-function toggleTodo(id) {
-  const target = todos.find((todo) => todo.id === id);
-  if (!target) return;
-  const nextCompleted = !target.completed;
+function render(store) {
+  const state = store.getState();
+  ListTask(state);
+  renderHistory(state.history);
 
-  todos = todos.map((todo) => {
-    if (todo.id !== id) return todo;
-    return { ...todo, completed: nextCompleted };
-  });
-
-  addHistory(`${nextCompleted ? "Completed" : "Reopened"} "${target.text}"`);
-  saveTodos();
-  render();
+  if (state.ui.editingId) {
+    const selector = `.todo-card[data-id=\"${escapeSelector(state.ui.editingId)}\"] .todo-edit`;
+    const input = todoList.querySelector(selector);
+    if (input && input instanceof HTMLInputElement) {
+      input.focus();
+      input.select();
+    }
+  }
 }
 
-// Remove a task and log the action.
-function removeTodo(id) {
-  const removed = todos.find((todo) => todo.id === id);
-  if (!removed) return;
-
-  todos = todos.filter((todo) => todo.id !== id);
-  addHistory(`Deleted "${removed.text}"`);
-  saveTodos();
-  render();
-}
-
-// Re-render tasks, counts, filters, and history.
-function render() {
-  // Visible list depends on selected filter tab.
-  const visibleTodos = todos.filter((todo) => {
-    if (currentFilter === "active") return !todo.completed;
-    if (currentFilter === "completed") return todo.completed;
-    return true;
-  });
+// Component: ListTask
+function ListTask(state) {
+  const visibleTasks = selectVisibleTasks(state.tasks, state.filter);
 
   todoList.innerHTML = "";
-
-  visibleTodos.forEach((todo) => {
-    const item = document.createElement("li");
-    item.className = `todo-card${todo.completed ? " completed" : ""}`;
-    item.dataset.id = todo.id;
-    item.tabIndex = 0;
-
-    // Keep tilt deterministic so cards do not jump while rerendering.
-    const tilt = ((hashId(todo.id) % 7) - 3) * 0.7;
-    item.style.setProperty("--tilt", `${tilt.toFixed(1)}deg`);
-
-    const check = document.createElement("input");
-    check.type = "checkbox";
-    check.className = "todo-check";
-    check.checked = todo.completed;
-    check.setAttribute("aria-label", `Mark ${todo.text} as completed`);
-
-    const text = document.createElement("p");
-    text.className = "todo-text";
-    text.textContent = todo.text;
-
-    const del = document.createElement("button");
-    del.type = "button";
-    del.className = "delete-btn";
-    del.textContent = "Delete";
-    del.setAttribute("aria-label", `Delete task ${todo.text}`);
-
-    item.append(check, text, del);
-    todoList.append(item);
+  visibleTasks.forEach((task) => {
+    todoList.append(Task(task, state.ui.editingId));
   });
 
-  const activeCount = todos.filter((todo) => !todo.completed).length;
-  const completedCount = todos.length - activeCount;
+  const notDoneCount = state.tasks.filter((task) => !task.isDone).length;
+  const doneCount = state.tasks.length - notDoneCount;
 
-  itemsLeft.textContent = `${activeCount} item${activeCount === 1 ? "" : "s"} left`;
-  clearCompletedBtn.disabled = completedCount === 0;
-  emptyState.hidden = visibleTodos.length > 0;
+  itemsLeft.textContent = `${notDoneCount} item${notDoneCount === 1 ? "" : "s"} left`;
+  clearCompletedBtn.disabled = doneCount === 0;
+  emptyState.hidden = visibleTasks.length > 0;
 
-  // Keep active tab styling in sync with currentFilter.
   [...filterContainer.querySelectorAll(".filter-btn")].forEach((button) => {
-    button.classList.toggle("active", button.dataset.filter === currentFilter);
+    button.classList.toggle("active", button.dataset.filter === state.filter);
   });
+}
 
-  // History is rendered separately for clarity.
-  renderHistory();
+function selectVisibleTasks(tasks, filter) {
+  if (filter === "done") return tasks.filter((task) => task.isDone);
+  if (filter === "not_done") return tasks.filter((task) => !task.isDone);
+  return tasks;
+}
+
+// Component: Task
+function Task(task, editingId) {
+  const isEditing = task.id === editingId;
+
+  const item = document.createElement("li");
+  item.className = `todo-card${task.isDone ? " completed" : ""}`;
+  item.tabIndex = 0;
+  item.dataset.id = task.id;
+
+  const tilt = ((hashId(task.id) % 7) - 3) * 0.7;
+  item.style.setProperty("--tilt", `${tilt.toFixed(1)}deg`);
+
+  const check = document.createElement("input");
+  check.type = "checkbox";
+  check.className = "todo-check";
+  check.checked = task.isDone;
+  check.disabled = isEditing;
+  check.setAttribute("aria-label", `Mark ${task.description} as done`);
+
+  const content = isEditing ? createEditField(task) : createText(task);
+  const actionsEl = createActions(task, isEditing);
+
+  item.append(check, content, actionsEl);
+  return item;
+}
+
+function createText(task) {
+  const text = document.createElement("p");
+  text.className = "todo-text";
+  text.textContent = task.description;
+  text.title = "Click to edit";
+  return text;
+}
+
+function createEditField(task) {
+  const input = document.createElement("input");
+  input.type = "text";
+  input.className = "todo-edit";
+  input.value = task.description;
+  input.maxLength = 120;
+  input.setAttribute("aria-label", `Edit task ${task.description}`);
+  return input;
+}
+
+function createActions(task, isEditing) {
+  const wrap = document.createElement("div");
+  wrap.className = "todo-actions";
+
+  if (isEditing) {
+    const save = document.createElement("button");
+    save.type = "button";
+    save.className = "save-btn";
+    save.textContent = "Save";
+    save.setAttribute("aria-label", `Save edits for ${task.description}`);
+
+    const cancel = document.createElement("button");
+    cancel.type = "button";
+    cancel.className = "cancel-btn";
+    cancel.textContent = "Cancel";
+    cancel.setAttribute("aria-label", `Cancel edit for ${task.description}`);
+
+    wrap.append(save, cancel);
+  } else {
+    const edit = document.createElement("button");
+    edit.type = "button";
+    edit.className = "edit-btn";
+    edit.textContent = "Edit";
+    edit.setAttribute("aria-label", `Edit task ${task.description}`);
+    wrap.append(edit);
+  }
+
+  const del = document.createElement("button");
+  del.type = "button";
+  del.className = "delete-btn";
+  del.textContent = "Delete";
+  del.setAttribute("aria-label", `Delete task ${task.description}`);
+  wrap.append(del);
+
+  return wrap;
 }
 
 // Render persisted action history entries.
-function renderHistory() {
+function renderHistory(historyEntries) {
   if (!hasHistoryUI) return;
 
   historyList.innerHTML = "";
@@ -236,23 +430,57 @@ function renderHistory() {
   clearHistoryBtn.disabled = historyEntries.length === 0;
 }
 
-// Load/sync todos from storage.
-function loadTodos() {
+function addHistoryEntry(state, message) {
+  const nextHistory = [
+    { id: generateId(), message, timestamp: Date.now() },
+    ...(Array.isArray(state.history) ? state.history : [])
+  ].slice(0, HISTORY_LIMIT);
+
+  return { ...state, history: nextHistory };
+}
+
+function loadTasks() {
   try {
     const raw = safeGet(STORAGE_KEY);
     const parsed = JSON.parse(raw ?? "[]");
-    return Array.isArray(parsed) ? parsed : [];
+    if (!Array.isArray(parsed)) return [];
+
+    return parsed
+      .map((item) => normalizeTask(item))
+      .filter((task) => task && typeof task.id === "string" && task.description);
   } catch {
     return [];
   }
 }
 
-// Persist the latest todo list state.
-function saveTodos() {
-  safeSet(STORAGE_KEY, JSON.stringify(todos));
+function normalizeTask(item) {
+  if (!item || typeof item !== "object") return null;
+
+  // New schema: { id, description, isDone }
+  if (typeof item.description === "string") {
+    return {
+      id: String(item.id ?? generateId()),
+      description: item.description.trim(),
+      isDone: Boolean(item.isDone)
+    };
+  }
+
+  // Legacy schema migration: { id, text, completed }
+  if (typeof item.text === "string") {
+    return {
+      id: String(item.id ?? generateId()),
+      description: item.text.trim(),
+      isDone: Boolean(item.completed)
+    };
+  }
+
+  return null;
 }
 
-// Load/sync history entries from storage.
+function saveTasks(tasks) {
+  safeSet(STORAGE_KEY, JSON.stringify(Array.isArray(tasks) ? tasks : []));
+}
+
 function loadHistory() {
   try {
     const raw = safeGet(HISTORY_KEY);
@@ -263,23 +491,8 @@ function loadHistory() {
   }
 }
 
-// Persist the latest history list state.
-function saveHistory() {
-  safeSet(HISTORY_KEY, JSON.stringify(historyEntries));
-}
-
-// Add a new history record and keep the list bounded.
-function addHistory(message) {
-  // Newest events appear first.
-  historyEntries.unshift({
-    id: generateId(),
-    message,
-    timestamp: Date.now()
-  });
-
-  // Prevent unbounded growth in localStorage.
-  historyEntries = historyEntries.slice(0, HISTORY_LIMIT);
-  saveHistory();
+function saveHistory(historyEntries) {
+  safeSet(HISTORY_KEY, JSON.stringify(Array.isArray(historyEntries) ? historyEntries : []));
 }
 
 // Produce a stable numeric hash used for card tilt variation.
@@ -292,16 +505,19 @@ function hashId(id) {
   return Math.abs(hash);
 }
 
+function escapeSelector(value) {
+  if (typeof CSS !== "undefined" && typeof CSS.escape === "function") return CSS.escape(value);
+  return String(value).replace(/[\"\\\\]/g, "\\\\$&");
+}
+
 // Initialize theme from storage or system preference.
 function initTheme() {
   const stored = safeGet(THEME_KEY);
   if (stored === "light" || stored === "dark") {
-    // Respect explicit user choice when available.
     setTheme(stored);
     return;
   }
 
-  // Fallback to OS/browser preference for first-time users.
   const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
   setTheme(prefersDark ? "dark" : "light");
 }
@@ -309,7 +525,6 @@ function initTheme() {
 // Apply the active theme and persist it.
 function setTheme(theme) {
   document.body.dataset.theme = theme;
-  // Keep the segmented toggle in sync with active theme.
   const buttons = themeToggle.querySelectorAll("[data-theme-option]");
   buttons.forEach((button) => {
     const isActive = button.dataset.themeOption === theme;
@@ -328,7 +543,6 @@ function formatHistoryTime(timestamp) {
   }
 }
 
-// Storage wrappers prevent crashes when storage access is blocked.
 function safeGet(key) {
   try {
     return localStorage.getItem(key);
@@ -337,7 +551,6 @@ function safeGet(key) {
   }
 }
 
-// Safely write values to storage without throwing in restricted modes.
 function safeSet(key, value) {
   try {
     localStorage.setItem(key, value);
@@ -346,7 +559,6 @@ function safeSet(key, value) {
   }
 }
 
-// Fallback ID generator for environments without crypto.randomUUID().
 function generateId() {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
     return crypto.randomUUID();

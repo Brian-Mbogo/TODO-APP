@@ -1,78 +1,97 @@
-﻿# Todo App (HTML/CSS/JS)
+# Todo App (Redux Toolkit + React + TypeScript)
 
-A framework-free Todo app built for AI-assisted iteration.
-
-## View Live Demo
-
-[View Live Demo on Vercel](https://todo-app-six-phi-84.vercel.app)
+A simple Todo application built with **Vite + React + Redux Toolkit**. Global state (todos + filter) is managed in Redux.
 
 ## Features
 
-- Add tasks
-- Mark tasks completed
-- Delete tasks
-- Persist tasks with Local Storage
-- Filter by All / Active / Completed
-- Clear all completed tasks
-- Dark mode toggle with saved preference
-- Keyboard shortcut: press `Delete` on a focused task card
-- Responsive layout for mobile and desktop
+- Add a new todo
+- Mark todo done / not done
+- Filter todos by **All / Not Done / Done**
+- Edit a todo (inline)
+- Delete a todo
+- Clear all completed todos
 
-## Files
+## Data model
 
-- `index.html`: structure and UI sections
-- `style.css`: sticky-note styling, responsive design, theme variables
-- `script.js`: state handling, rendering, storage, filters, interactions
+Each todo has:
 
-## Prompt Iteration Workflow (ChatGPT + Replit)
+- `id: string`
+- `description: string`
+- `isDone: boolean`
 
-1. Start with this base prompt:
-   - "I want to build a simple Todo List web app using only HTML, CSS, and JavaScript (no frameworks). It should let users add tasks, mark them as completed, delete them, and store them in local storage."
-2. Copy generated code into Replit files.
-3. Run, test, and capture issues.
-4. Iterate with targeted prompts:
-   - "This delete button is not working. Here is my JS. Debug and fix it."
-   - "Add All/Active/Completed filters."
-   - "Add a clear completed button."
-   - "Make the task cards look like sticky notes with a soft shadow and slight rotation."
+Internally we also store:
 
-## Local Test Checklist
+- `createdAt: number` (timestamp)
 
-- Add multiple tasks
-- Toggle completed state
-- Delete one task
-- Use each filter tab
-- Click `Clear Completed`
-- Refresh browser and confirm tasks persist
-- Toggle theme and refresh to confirm theme persistence
-- Test mobile viewport
+## Redux state
 
-## Replit Setup
+- Store: `src/store/store.ts`
+- Slice: `src/store/todoSlice.ts`
 
-1. Create a new Repl with `HTML, CSS, JS` template.
-2. Paste each file into:
-   - `index.html`
-   - `style.css`
-   - `script.js`
-3. Click **Run**.
-4. Use **Share** to generate a live URL.
+State shape:
 
-## Deployment Options
+```ts
+{
+  todo: {
+    todos: Array<{ id; description; isDone; createdAt }>,
+    filter: "all" | "done" | "notDone"
+  }
+}
+```
 
-### Replit Share Link
+Actions:
 
-- Fastest option: click **Share** and copy the live preview URL.
+- `addTodo(description)`
+- `toggleTodo(id)`
+- `editTodo({ id, description })`
+- `deleteTodo(id)`
+- `setFilter("all" | "done" | "notDone")`
+- `clearCompleted()`
 
-### GitHub Pages
+## Components
 
-1. Create a GitHub repository.
-2. Push these files.
-3. In GitHub repo settings, enable **Pages** from the main branch root.
-4. Open the generated URL.
+- `src/components/AddTask.tsx` (component name: `Addtask`)  
+  Input + submit → dispatches `addTodo`.
+- `src/components/ListTask.tsx`  
+  Reads `todos` + `filter` from Redux and renders the visible list.
+- `src/components/Task.tsx`  
+  Single task row with toggle, edit, delete.
 
-## Next Enhancements
+Main UI composition lives in `src/App.tsx`.
 
-- Inline task editing
-- Drag-and-drop ordering
-- Due dates and priority labels
-- Search bar
+## Styling
+
+The UI styles are in `style.css` (imported by `src/main.tsx`).
+
+## Getting started
+
+Install deps:
+
+```bash
+npm install
+```
+
+If you get permission errors writing to the default npm cache, use:
+
+```bash
+npm install --cache .npm-cache
+```
+
+Run dev server:
+
+```bash
+npm run dev
+```
+
+Build production bundle:
+
+```bash
+npm run build
+```
+
+Preview the production build:
+
+```bash
+npm run preview
+```
+

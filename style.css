@@ -261,6 +261,47 @@ button:active {
   padding: 8px 10px;
 }
 
+.todo-actions {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.edit-btn,
+.save-btn {
+  background: transparent;
+  color: var(--primary-strong);
+  border: 1px solid color-mix(in srgb, var(--primary), transparent 55%);
+  font-size: 0.85rem;
+  padding: 8px 10px;
+}
+
+.cancel-btn {
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid color-mix(in srgb, var(--text), transparent 75%);
+  font-size: 0.85rem;
+  padding: 8px 10px;
+}
+
+.todo-edit {
+  width: 100%;
+  border: 1px solid color-mix(in srgb, var(--text), transparent 65%);
+  border-radius: 10px;
+  padding: 6px 10px;
+  font-family: "Caveat", cursive;
+  font-size: 1.4rem;
+  line-height: 1.15;
+  background: color-mix(in srgb, var(--surface), transparent 35%);
+  color: var(--text);
+}
+
+.todo-edit:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary), white 25%);
+}
+
 .empty-state {
   margin: 18px 2px 0;
   color: var(--muted);
