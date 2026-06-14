@@ -25,6 +25,8 @@ const initialState: TodoState = {
 // - state (initialState)
 // - reducers (functions that update that state)
 // - generated action creators (addTodo, toggleTodo, ...)
+//
+// This file is the single source of truth for how todos are added/updated/removed.
 const todoSlice = createSlice({
   name: 'todo',
   initialState,

@@ -51,7 +51,7 @@ Actions:
 ## Components
 
 - `src/components/AddTask.tsx` (component name: `Addtask`)  
-  Input + submit → dispatches `addTodo`.
+  Input + submit -> dispatches `addTodo`.
 - `src/components/ListTask.tsx`  
   Reads `todos` + `filter` from Redux and renders the visible list.
 - `src/components/Task.tsx`  
@@ -94,4 +94,3 @@ Preview the production build:
 ```bash
 npm run preview
 ```
-

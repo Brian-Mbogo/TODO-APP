@@ -3,7 +3,8 @@ import { useAppDispatch } from '../store/hooks'
 import { addTodo } from '../store/todoSlice'
 
 // Component: Addtask
-// Lets the user type a description and dispatches addTodo() on submit.
+// Provides the “new task” form.
+// Keeps the input in local component state and dispatches addTodo() on submit.
 export default function Addtask() {
   const dispatch = useAppDispatch()
   // Local UI state for the input field (this is NOT stored in Redux).

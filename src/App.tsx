@@ -101,7 +101,7 @@ function App() {
           </button>
         </section>
 
-        {/* This component renders the filtered list of todos. */}
+        {/* Renders the filtered todo list (ListTask reads todos+filter from Redux). */}
         <ListTask />
 
         <footer className="app-footer">

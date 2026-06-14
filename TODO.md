@@ -1,30 +1,15 @@
-# Redux Todo App Refactor Plan
+# TODO-APP - Change Log
 
-## Status: In Progress
+## Goal
+Add meaningful comments throughout the codebase.
 
-### Step 1: Project Setup ✅
-- Create `package.json` with Vite + React + Redux Toolkit deps
-- Create `vite.config.ts`
-- Create `src/main.tsx`, `src/App.tsx`
-- Update `index.html` (add Vite client script)
-- `npm install`
+## Plan (approved: yes)
+1. Add/expand comments in the key TS/TSX files.
+2. Ensure edits don’t change behavior.
+3. Run TypeScript/Vite build checks.
+4. Commit and push to GitHub repository.
 
-### Step 2: Redux Store ✅
-- `src/store/store.ts`
-- `src/store/todoSlice.ts` (add, toggle, edit, delete, filter)
+## Progress
+- Completed: File inspection (App, AddTask, Task, ListTask, store, hooks, todoSlice, main, styles)
+- Pending: Add comments + run build + commit/push
 
-### Step 3: Migrate Components [PENDING]
-- `src/components/AddTask.tsx`
-- `src/components/Task.tsx`
-- `src/components/ListTask.tsx`
-- `src/components/Filters.tsx`
-
-### Step 4: Integrate & Style [PENDING]
-- Migrate CSS to `src/index.css`
-- App.tsx layout with all components
-- LocalStorage persistence
-
-### Step 5: Test & Complete [PENDING]
-- `npm run dev`
-- Test all features
-- Update README.md

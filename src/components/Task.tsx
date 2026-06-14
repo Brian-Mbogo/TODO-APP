@@ -14,7 +14,8 @@ type Props = {
 }
 
 // Component: Task
-// Renders one todo item and dispatches Redux actions for toggle/edit/delete.
+// Renders one todo item.
+// Uses local state for edit mode, while dispatching Redux actions to toggle/edit/delete the todo.
 export default function Task({ task }: Props) {
   const dispatch = useAppDispatch()
   // Local UI state for edit mode (not stored in Redux).

@@ -1,6 +1,7 @@
 node_modules/
 dist/
 .npm-cache/
+user-list-app/
 
 # OS / editor
 .DS_Store
@@ -12,4 +13,3 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
-

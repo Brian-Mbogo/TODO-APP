@@ -2,7 +2,7 @@ import { useAppSelector } from '../store/hooks'
 import Task from './Task'
 
 // Component: ListTask
-// Reads todos + filter from Redux, filters them, and renders Task components.
+// Reads todos + filter from the Redux store, applies the active filter, then renders <Task /> for each visible todo.
 export default function ListTask() {
   // Select data from the Redux store:
   const todos = useAppSelector((s) => s.todo.todos)
